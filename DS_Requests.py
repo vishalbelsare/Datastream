@@ -5,9 +5,9 @@ Created on Sat Dec 29 00:55:39 2018
 @author: Vidya Dinesh
 """
 #--------------------------------------------------------------------------------
-class IProperties:
+class IProperties(object):
     """Properties of Instruments"""
-    Key = ""
+    #Key = ""
     Value = True
     
     def __init__(self, key, value):
@@ -15,20 +15,20 @@ class IProperties:
         self.Value = value
         
 #--------------------------------------------------------------------------------      
-class DataType:
+class DataType(object):
     """Class used to store Datatype""" 
-    datatype = ""
+    #datatype = ""
     
     def __init__(self, value):
        self.datatype = value
 
 #--------------------------------------------------------------------------------      
-class Date:
+class Date(object):
     """Date parameters of a Data Request"""
-    Start = ""
-    End = ""
-    Frequency = ""
-    Kind = 0
+    #Start = ""
+    #End = ""
+    #Frequency = ""
+    #Kind = 0
     
     def __init__(self, startDate = "", freq = "D", endDate = "", kind = 0):
        self.Start = startDate
@@ -39,22 +39,22 @@ class Date:
 #--------------------------------------------------------------------------------                  
 class Instrument(IProperties):
     """Instrument and its Properties"""
-    instrument = ""
-    properties = [IProperties]
+    #instrument = ""
+    #properties = [IProperties]
     
     def __init__(self, inst, props):
         self.instrument = inst
         self.properties = props
     
 #--------------------------------------------------------------------------------
-class Properties:
+class Properties(object):
     """Properties of Data Request"""
     """Captures the data source given in the Request,it
     can be "PROD"/ "STAGING" / "QA". If not specified, 
     a Default source is taken"""
     
     Key = "Source"
-    Value = ""
+    #Value = ""
     
     def __init__(self, value):
         self.Value = value
@@ -64,8 +64,8 @@ class Properties:
 #--------------------------------------------------------------------------------
 """Classes that help to form the Request in RAW JSON format"""
 class TokenRequest(Properties):
-    password = ""
-    username = ""
+    #password = ""
+    #username = ""
     
     def __init__(self, uname, pword, source = None):
         self.username = uname
@@ -130,14 +130,14 @@ class DataRequest:
             
         
     def _set_Instrument(self, inst):
-        propties=[]
-        if inst.properties == None:
-            return {"Properties":None,"Value":inst.instrument}
-        else:
-            for eachPrpty in inst.properties:
-                propties.append({"Key":DataRequest.hints[eachPrpty.Key],"Value":True})
-            return {"Properties":propties,"Value":inst.instrument}
-            
+        return {
+                "Properties": [{
+                        'Key': DataRequest.hints[eachPrpty],
+                        'Value': True
+                        } for eachPrpty in inst.properties] if inst.properties else None,
+            "Value": inst.instrument
+               }
+        
     
     def _set_Date(self, dt):
         return {"End":dt.End,"Frequency":dt.Frequency,"Kind":dt.Kind,"Start":dt.Start}
