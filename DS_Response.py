@@ -10,7 +10,12 @@ import pandas as pd
 import datetime
 import pytz
 
-import DS_Requests as DSReq
+from DS_Requests import TokenRequest
+from DS_Requests import Instrument
+from DS_Requests import IProperties
+from DS_Requests import DataRequest
+from DS_Requests import DataType
+from DS_Requests import Date
 
 #--------------------------------------------------------------------------------------
 class Datastream:
@@ -20,7 +25,7 @@ class Datastream:
     password = ""
     token = None
     dataSource = None
-
+    
 #--------Constructor ---------------------------  
     def __init__(self, username, password, dataSource=None):
         self.username = username
@@ -31,7 +36,19 @@ class Datastream:
 #------------------------------------------------------- 
     def post_user_request(self, tickers, fields=None, start='', end='', freq='', kind=1):
         """ This function helps to form requests for get_bundle_data. 
-            Each request is converted to JSON format."""
+            Each request is converted to JSON format.
+            
+            Args:
+               tickers: string, Dataypes 
+               fields: List, default None
+               start: string, default ''
+               end : string, default ''
+               freq : string, default '', By deafult DSWS treats as Daily freq
+               kind: int, default 1, indicates Timeseries as output
+
+          Returns:
+                  Dictionary"""
+
             
         if fields == None:
             fields=[]
@@ -39,22 +56,22 @@ class Datastream:
         index = tickers.rfind('|')
         try:
             if index == -1:
-                instrument = DSReq.Instrument(tickers, None)
+                instrument = Instrument(tickers, None)
             else:
                 #Get all the properties of the instrument
                 props = []
                 if tickers[index+1:].rfind(',') != -1:
                     propList = tickers[index+1:].split(',')
                     for eachProp in propList:
-                        props.append(DSReq.IProperties(eachProp, True))
+                        props.append(IProperties(eachProp, True))
                 else:
-                    props.append(DSReq.IProperties(tickers[index+1:], True))
+                    props.append(IProperties(tickers[index+1:], True))
                     #Get the no of instruments given in the request
                     instList =  tickers[0:index].split(',')
                     if len(instList) > 40:
                         raise Exception('Too many instruments in single request')
                     else:
-                        instrument = DSReq.Instrument(tickers[0:index], props)
+                        instrument = Instrument(tickers[0:index], props)
                         
             datypes=[]
             if len(fields) > 0:
@@ -62,11 +79,11 @@ class Datastream:
                     raise Exception('Too mant datatypes in single request')
                 else:
                     for eachDtype in fields:
-                        datypes.append(DSReq.DataType(eachDtype))
+                        datypes.append(DataType(eachDtype))
             else:
-                datypes.append(DSReq.DataType(fields))
+                datypes.append(DataType(fields))
                         
-            date = DSReq.Date(start, freq, end, kind)
+            date = Date(start, freq, end, kind)
             request = {"Instrument":instrument,"DataTypes":datypes,"Date":date}
             return request
         except Exception as err:
@@ -75,7 +92,19 @@ class Datastream:
             
     def get_data(self, tickers, fields=None, start='', end='', freq='', kind=1):
         """This Function processes a single JSON format request to provide
-           data response from DSWS web in the form of python Dataframe"""
+           data response from DSWS web in the form of python Dataframe
+           
+           Args:
+               tickers: string, Dataypes 
+               fields: List, default None
+               start: string, default ''
+               end : string, default ''
+               freq : string, default '', By deafult DSWS treats as Daily freq
+               kind: int, default 1, indicates Timeseries as output
+
+          Returns:
+                  DataFrame."""
+
         getData_url = self.url + "GetData"
         raw_dataRequest = ""
         json_dataRequest = ""
@@ -86,7 +115,7 @@ class Datastream:
         
         try:
             req = self.post_user_request(tickers, fields, start, end, freq, kind)
-            datarequest = DSReq.DataRequest()
+            datarequest = DataRequest()
             if (self.token == None):
                 raise Exception("Invalid Token Value")
             else:
@@ -112,7 +141,13 @@ class Datastream:
         """This Function processes a multiple JSON format data requests to provide
            data response from DSWS web in the form of python Dataframe.
            Use post_user_request to form each JSON data request and append to a List
-           to pass the bundleRequset."""
+           to pass the bundleRequset.
+           
+            Args:
+               bundleRequest: List, expects list of Datarequests 
+            Returns:
+                  DataFrame."""
+
         getDataBundle_url = self.url + "GetDataBundle"
         raw_dataRequest = ""
         json_dataRequest = ""
@@ -122,7 +157,7 @@ class Datastream:
             bundleRequest = []
         
         try:
-            datarequest = DSReq.DataRequest()
+            datarequest = DataRequest()
             if (self.token == None):
                 raise Exception("Invalid Token Value")
             else:
@@ -150,7 +185,7 @@ class Datastream:
     def _get_token(self):
         token_url = self.url + "GetToken"
         try:
-            tokenReq = DSReq.TokenRequest(self.username, self.password, self.dataSource)
+            tokenReq = TokenRequest(self.username, self.password, self.dataSource)
             raw_tokenReq = tokenReq.get_TokenRequest()
             json_tokenReq = self._json_Request(raw_tokenReq)
             #Post the token request to get response in json format
@@ -162,7 +197,7 @@ class Datastream:
         except:
             print("Token Request : Unexpected error")
             return None
-            
+    
     def _json_Request(self, raw_text):
         #convert the dictionary (raw text) to json text first
         jsonText = json.dumps(raw_text)
@@ -195,35 +230,33 @@ class Datastream:
                colNames = (instrument,datatype)
                df[colNames] = None
                
-               """Handling all possible types of data as per DSSymbolResponseValueType"""
+               #Handling all possible types of data as per DSSymbolResponseValueType
                if valType in [7, 8, 10, 11, 12, 13, 14, 15, 16]:
-                   """These value types return an array
-                   The array can be of double, int, string or Object"""
+                   #These value types return an array
+                   #The array can be of double, int, string or Object
                    rowCount = df.shape[0]
                    valLen = len(values)
-                   """If no of Values is < rowcount, append None to values"""
+                   #If no of Values is < rowcount, append None to values
                    if rowCount > valLen:
                        for i in range(rowCount - valLen):
                             values.append(None)
-                   """ Check if the array of Object is JSON dates and convert""" 
+                  #Check if the array of Object is JSON dates and convert
                    for x in range(0, len(values)):
                        values[x] = self._get_Date(values[x]) if str(values[x]).find('/Date(') != -1 else values[x] 
                    df[colNames] = values
                    multiIndex = True
                elif valType in [1, 2, 3, 5, 6]:
-                   """These value types return single value"""
+                   #These value types return single value
                    valDict["Value"].append(values)
                    multiIndex = False
                else:
                    if valType == 4:
-                       """value type 4 return single JSON date value, 
-                       which needs conversion"""
+                       #value type 4 return single JSON date value, which needs conversion
                        values = self._get_Date(values)
                        valDict["Value"].append(values)
                        multiIndex = False
                    elif valType == 9:
-                       """value type 9 return array of JSON date values, 
-                       which needs conversion"""
+                       #value type 9 return array of JSON date values, needs conversion
                        multiIndex = True
                        date_array = []
                        for eachVal in values:
@@ -231,7 +264,7 @@ class Datastream:
                            df[colNames] = values
                    else:
                        if valType == 0:
-                           """Error Returned"""
+                           #Error Returned
                            multiIndex = False
                            valDict["Value"].append(values)
                            
@@ -248,7 +281,7 @@ class Datastream:
     def _format_Response(self, response_json):
         # If dates is not available, the request is not constructed correctly
         response_json = dict(response_json)
-        if 'Dates' in response_json.keys():
+        if 'Dates' in response_json:
             dates_converted = []
             if response_json['Dates'] != None:
                 dates = response_json['Dates']
@@ -261,7 +294,9 @@ class Datastream:
         dataframe = self._get_DatatypeValues(response_json['DataTypeValues'])
         if (len(dates_converted) == len(dataframe.index)):
             if (len(dates_converted) > 1):
-                dataframe.insert(loc = 0, column = 'Dates', value = dates_converted)
+                #dataframe.insert(loc = 0, column = 'Dates', value = dates_converted)
+                dataframe.index = dates_converted
+                dataframe.index.name = 'Dates'
         elif (len(dates_converted) == 1):
             dataframe['Dates'] = dates_converted[0]
             
@@ -275,4 +310,4 @@ class Datastream:
            
        return formattedResp
 #--------------------------------------------------------------------------------------
-    
+
