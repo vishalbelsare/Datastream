@@ -1,11 +1,11 @@
-# PyDSWS
+# DatastreamDSWS
 Python wrapper for the Datastream Web Services API (DSWS)
 
-Connect to the Thomson Reuters Datastream database via Datastream Web Services. 
+Connect to the Refinitiv Datastream database via Datastream Web Services. 
 You need to have a Datastream subscription and a username/password to use this package.
 Please note that this is an official package and it is still under development. 
-For support on this package, please contact Thomson Reuters team.
-The package has basic functionality and most of the error handling still needs to be done.
+For support on this package, please contact Refinitiv team.
+The package includes all functionalities required to get data from Datastream, in the form of Python dataframes.
 
 Requirements:
 ----------------------------------------------------------------------------------
@@ -20,19 +20,19 @@ pytz
 
 Package Installation:
 ----------------------------------------------------------------------------------
-pip install PyDSWS_Wrapper
+pip install DatastreamDSWS
 ----------------------------------------------------------------------------------
 
 ### Usage
 ----------------------------------------------------------------------------------
-1) import the 'PyDSWS_Wrapper' package
+1) import the 'DatastreamDSWS' package
 2) authenticate with your username and password
 ----------------------------------------------------------------------------------
 3) Using get_data
 ----------------------------------------------------------------------------------
-import PyDSWS_Wrapper as pw
+import DatastreamDSWS as dsws
 
-ds = pw.DataStream(username='XXXXXXX', password='XXXXXXX')
+ds = dsws.DataStream(username='XXXXXXX', password='XXXXXXX')
 df = ds.get_data(tickers='VOD', fields=['P'], start ='2017-01-01', end = '-5D')
 print(df)
 
@@ -66,7 +66,7 @@ Date
 ----------------------------------------------------------------------------------
 4) Using get_bundle_data
 ----------------------------------------------------------------------------------
-ds = DataStream("xxxxxxx", "xxxxxxxxx")
+ds = dsws.DataStream("xxxxxxx", "xxxxxxxxx")
 reqs =[]
 reqs.append(ds.post_user_request(tickers='VOD',fields=['VO','P'],start='2017-01-01', kind = 0))#ststic data
 reqs.append(ds.post_user_request(tickers='U:BAC', fields=['P'], start='1975-01-01', end='0D', freq = "Y"))#Timeseries data
@@ -87,10 +87,10 @@ Field                         P
 ----------------------------------------------------------------------------------
 5) Retrieving data for a List
 ----------------------------------------------------------------------------------
-import PyDSWS_Wrapper as pw
-dst = pw pw.DataStream(username="xxxxx", password="xxxxx")
+import DatastreamDSWS as dsws
+dst = dsws.DataStream(username="xxxxx", password="xxxxx")
 
-df = ds.get_data(tickers="LS&PCOMP|L",fields =["NAME"])
+df = ds.get_data(tickers="LS&PCOMP|L",fields =["NAME"], kind=0)
 print(df)
 
 Note that we should specify |L in tickers, for List.
@@ -106,8 +106,8 @@ Output:
 ----------------------------------------------------------------------------------
 6) Retrieving data for Expressions
 ----------------------------------------------------------------------------------
-import PyDSWS_Wrapper as pw
-dst = pw pw.DataStream(username="xxxxx", password="xxxxx")
+import DatastreamDSWS as dsws
+ds = dsws.DataStream(username="xxxxx", password="xxxxx")
 
 df = ds.get_data(tickers='PCH#(VOD(P),3M)|E', start="20181101",end="-1M", freq="M")
 print(df)
