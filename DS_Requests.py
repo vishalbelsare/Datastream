@@ -130,15 +130,10 @@ class DataRequest:
             
         
     def _set_Instrument(self, inst):
-        return {
-                "Properties": [{
-                        'Key': DataRequest.hints[eachPrpty],
-                        'Value': True
-                        } for eachPrpty in inst.properties] if inst.properties else None,
-            "Value": inst.instrument
-               }
+        propties = [{'Key': DataRequest.hints[eachPrpty.Key],'Value': True} 
+                for eachPrpty in inst.properties] if inst.properties else None
+        return {"Properties": propties, "Value": inst.instrument}
         
-    
     def _set_Date(self, dt):
         return {"End":dt.End,"Frequency":dt.Frequency,"Kind":dt.Kind,"Start":dt.Start}
  #--------------------------------------------------------------------------        
