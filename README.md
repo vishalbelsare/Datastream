@@ -170,7 +170,7 @@ df = ds.get_data(tickers='STATS', fields=['DS.USERSTATS'], kind=0)
 
 Output:
 Instrument    Datatype       Value       Dates
-0      STATS        User     ZDSM042  2019-02-08
+0      STATS        User     xxxxxxx  2019-02-08
 1      STATS        Hits         147  2019-02-08
 2      STATS    Requests         113  2019-02-08
 3      STATS   Datatypes         660  2019-02-08
