@@ -5,11 +5,8 @@ Created on Sat Dec 29 00:55:39 2018
 @author: Vidya Dinesh
 """
 #--------------------------------------------------------------------------------
-class IProperties(object):
-    """Properties of Instruments"""
-    #Key = ""
-    Value = True
-    
+class Properties(object):
+    """Properties - Key Value Pair"""
     def __init__(self, key, value):
         self.Key = key
         self.Value = value
@@ -37,7 +34,7 @@ class Date(object):
        self.Kind = kind
 
 #--------------------------------------------------------------------------------                  
-class Instrument(IProperties):
+class Instrument(Properties):
     """Instrument and its Properties"""
     #instrument = ""
     #properties = [IProperties]
@@ -47,19 +44,6 @@ class Instrument(IProperties):
         self.properties = props
     
 #--------------------------------------------------------------------------------
-class Properties(object):
-    """Properties of Data Request"""
-    """Captures the data source given in the Request,it
-    can be "PROD"/ "STAGING" / "QA". If not specified, 
-    a Default source is taken"""
-    
-    Key = "Source"
-    #Value = ""
-    
-    def __init__(self, value):
-        self.Value = value
-
-#--------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------
 """Classes that help to form the Request in RAW JSON format"""
@@ -67,19 +51,15 @@ class TokenRequest(Properties):
     #password = ""
     #username = ""
     
-    def __init__(self, uname, pword, source = None):
+    def __init__(self, uname, pword, propties = None):
         self.username = uname
         self.password = pword
-        self.Key = "Source"
-        self.Value = source
+        self.properties = propties
         
     def get_TokenRequest(self):
         tokenReq = {"Password":self.password,"Properties":[],"UserName":self.username}
-        if self.Value == None or self.Value == "":
-            tokenReq["Properties"] = None
-        else:
-            tokenReq["Properties"].append({"Key":self.Key,"Value":self.Value})
-        
+        props =[{'Key': eachPrpty.Key,'Value':eachPrpty.Value} for eachPrpty in self.properties] if self.properties else None 
+        tokenReq["Properties"] = props
         return tokenReq
 #--------------------------------------------------------------------------------
 class DataRequest:

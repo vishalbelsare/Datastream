@@ -10,21 +10,22 @@ import pandas as pd
 import datetime
 import pytz
 
-from DS_Requests import TokenRequest
-from DS_Requests import Instrument
-from DS_Requests import IProperties
-from DS_Requests import DataRequest
-from DS_Requests import DataType
-from DS_Requests import Date
+from .DS_Requests import TokenRequest
+from .DS_Requests import Instrument
+from .DS_Requests import Properties
+from .DS_Requests import DataRequest
+from .DS_Requests import DataType
+from .DS_Requests import Date
 
 #--------------------------------------------------------------------------------------
 class Datastream:
     """Datastream helps to retrieve data from DSWS web rest service"""
-    url = "http://product.datastream.com/DSWSClient/V1/DSService.svc/rest/"
+    url = "https://product.datastream.com/DSWSClient/V1/DSService.svc/rest/"
     username = ""
     password = ""
     token = None
     dataSource = None
+    appID = "PythonLib 1.0"
     
 #--------Constructor ---------------------------  
     def __init__(self, username, password, dataSource=None):
@@ -63,9 +64,9 @@ class Datastream:
                 if tickers[index+1:].rfind(',') != -1:
                     propList = tickers[index+1:].split(',')
                     for eachProp in propList:
-                        props.append(IProperties(eachProp, True))
+                        props.append(Properties(eachProp, True))
                 else:
-                    props.append(IProperties(tickers[index+1:], True))
+                    props.append(Properties(tickers[index+1:], True))
                     #Get the no of instruments given in the request
                     instList =  tickers[0:index].split(',')
                     if len(instList) > 40:
@@ -185,7 +186,11 @@ class Datastream:
     def _get_token(self):
         token_url = self.url + "GetToken"
         try:
-            tokenReq = TokenRequest(self.username, self.password, self.dataSource)
+            propties = []
+            propties.append(Properties("__AppId", self.appID))
+            if self.dataSource:
+                propties.append(Properties("Source", self.dataSource))
+            tokenReq = TokenRequest(self.username, self.password, propties)
             raw_tokenReq = tokenReq.get_TokenRequest()
             json_tokenReq = self._json_Request(raw_tokenReq)
             #Post the token request to get response in json format
@@ -310,4 +315,6 @@ class Datastream:
            
        return formattedResp
 #--------------------------------------------------------------------------------------
+
+
 

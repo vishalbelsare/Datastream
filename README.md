@@ -177,3 +177,9 @@ Instrument    Datatype       Value       Dates
 4      STATS  Datapoints       23213  2019-02-08
 5      STATS  Start Date  2019-02-01  2019-02-08
 6      STATS    End Date  2019-02-28  2019-02-08
+
+-----------------------------------------------------------------------------------
+### Acknowledgements
+-----------------------------------------------------------------------------------
+Thanks to Joris (hoenie-ams) for his work on https://github.com/hoenie-ams/PyDSWS
+-----------------------------------------------------------------------------------
