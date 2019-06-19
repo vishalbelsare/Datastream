@@ -3,7 +3,7 @@ Python wrapper for the Datastream Web Services API (DSWS)
 
 Connect to the Refinitiv Datastream database via Datastream Web Services. 
 You need to have a Datastream subscription and a username/password to use this package.
-Please note that this is an official package and it is still under development. 
+Please note that this is an official beta package. 
 For support on this package, please contact Refinitiv team.
 The package includes all functionalities required to get data from Datastream, in the form of Python dataframes.
 
@@ -137,7 +137,7 @@ Field                  PCH#(X(P),-3M) PCH#(X(P),-3M)
 ----------------------------------------------------------------------------------
 7) Retrieving data for NDOR
 ----------------------------------------------------------------------------------
-df = ds.get_data(tickers='USGDP…D',fields=['DS.NDOR1'])
+df = ds.get_data(tickers='USGDPâ€¦D',fields=['DS.NDOR1'])
 
 Output:
 Instrument              Datatype       Value
