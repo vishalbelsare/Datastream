@@ -39,9 +39,9 @@ print(df)
 For static data:
 ----------------------------------------------------------------------------------
 df = ds.get_data(tickers='VOD', fields=['VO','P'], start='2017-01-01', kind = 0)
-
-Output:
- Instrument Datatype     Value       Dates
+#
+#Output:
+#Instrument Datatype     Value       Dates
 0        VOD       VO  36773.80  2017-01-01
 1        VOD        P    199.85  2017-01-01
 
