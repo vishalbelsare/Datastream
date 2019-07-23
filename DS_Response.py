@@ -9,13 +9,12 @@ import json
 import pandas as pd
 import datetime
 import pytz
+import configparser 
+import certifi
+import traceback
 
-from .DS_Requests import TokenRequest
-from .DS_Requests import Instrument
-from .DS_Requests import Properties
-from .DS_Requests import DataRequest
-from .DS_Requests import DataType
-from .DS_Requests import Date
+
+from DS_Requests import TokenRequest, Instrument, Properties, DataRequest, DataType, Date
 
 #--------------------------------------------------------------------------------------
 class Datastream:
@@ -25,14 +24,27 @@ class Datastream:
     password = ""
     token = None
     dataSource = None
+    proxy = ""
+    sslCer = ""
     appID = "PythonLib 1.0"
+   
     
 #--------Constructor ---------------------------  
-    def __init__(self, username, password, dataSource=None):
+    def __init__(self, username, password, dataSource=None, config=None):
+        if (config):
+            parser = configparser.ConfigParser()
+            parser.read(config)
+            server = parser.get('proxy_details', 'server')
+            user = None if parser.get('proxy_details', 'username') == '' else parser.get('proxy_details', 'username')
+            pswd = None if parser.get('proxy_details', 'password') == '' else parser.get('proxy_details', 'password')
+            port = 80 if parser.get('proxy_details', 'port') == '' else int(parser.get('proxy_details', 'port'))
+            self.sslCer = None if parser.get('ssl_verify', 'certificate') == '' else parser.get('ssl_verify', 'certificate')
+            self.proxy = self._getProxy(server, user, pswd, port)
         self.username = username
         self.password = password
         self.dataSource = dataSource
         self.token = self._get_token()
+        
 #-------------------------------------------------------  
 #------------------------------------------------------- 
     def post_user_request(self, tickers, fields=None, start='', end='', freq='', kind=1):
@@ -87,8 +99,10 @@ class Datastream:
             date = Date(start, freq, end, kind)
             request = {"Instrument":instrument,"DataTypes":datypes,"Date":date}
             return request
-        except Exception as err:
-            print(err)
+        except Exception:
+            print("post_user_request : Exception Occured")
+            print(traceback.sys.exc_info())
+            print(traceback.print_exc(limit=5))
             return None
             
     def get_data(self, tickers, fields=None, start='', end='', freq='', kind=1):
@@ -105,6 +119,7 @@ class Datastream:
 
           Returns:
                   DataFrame."""
+                 
 
         getData_url = self.url + "GetData"
         raw_dataRequest = ""
@@ -126,16 +141,25 @@ class Datastream:
             if (raw_dataRequest != ""):
                 json_dataRequest = self._json_Request(raw_dataRequest)
                 #Post the requests to get response in json format
-                json_Response = requests.post(getData_url, json=json_dataRequest).json()
+                if (self.sslCer):
+                    json_Response = requests.post(getData_url, json=json_dataRequest,
+                                                  proxies={"http":self.proxy}, verify=self.sslCer).json()
+                else:
+                    json_Response = requests.post(getData_url, json=json_dataRequest,
+                                                  proxies={"http":self.proxy}, verify=certifi.where()).json()
                 #print(json_Response)
                 #format the JSON response into readable table
                 response_dataframe = self._format_Response(json_Response['DataResponse'])
                 return response_dataframe
         except json.JSONDecodeError:
-            print("JSON decoder error while get_data request")
+            print("get_data : JSON decoder Exception Occured")
+            print(traceback.sys.exc_info())
+            print(traceback.print_exc(limit=5))
             return None
-        except:
-            print("get_data : Unexpected error")
+        except Exception:
+            print("get_data : Exception Occured")
+            print(traceback.sys.exc_info())
+            print(traceback.print_exc(limit=5))
             return None
     
     def get_bundle_data(self, bundleRequest=None):
@@ -169,21 +193,30 @@ class Datastream:
             if (raw_dataRequest != ""):
                 json_dataRequest = self._json_Request(raw_dataRequest)
                 #Post the requests to get response in json format
-                json_Response = requests.post(getDataBundle_url, json=json_dataRequest).json()
-                #print(json_Response)
+                if (self.sslCer):
+                    json_Response = requests.post(getDataBundle_url, json=json_dataRequest,
+                                                  proxies={"http":self.proxy}, verify=self.sslCer).json()
+                else:
+                    json_Response = requests.post(getDataBundle_url, json=json_dataRequest,
+                                                  proxies={"http":self.proxy}, verify=certifi.where()).json()
+                    #print(json_Response)
                 response_dataframe = self._format_bundle_response(json_Response)
                 return response_dataframe
         except json.JSONDecodeError:
-            print("JSON decoder error while get_data request")
+            print("get_bundle_data : JSON decoder Exception Occured")
+            print(traceback.sys.exc_info())
+            print(traceback.print_exc(limit=5))
             return None
-        except:
-            print("get_bundle_data : Unexpected error")
+        except Exception:
+            print("get_bundle_data : Exception Occured")
+            print(traceback.sys.exc_info())
+            print(traceback.print_exc(limit=5))
             return None
     
 #------------------------------------------------------- 
 #-------------------------------------------------------             
 #-------Helper Functions---------------------------------------------------
-    def _get_token(self):
+    def _get_token(self, isProxy=False):
         token_url = self.url + "GetToken"
         try:
             propties = []
@@ -194,13 +227,27 @@ class Datastream:
             raw_tokenReq = tokenReq.get_TokenRequest()
             json_tokenReq = self._json_Request(raw_tokenReq)
             #Post the token request to get response in json format
-            json_Response = requests.post(token_url, json=json_tokenReq).json()
-            return json_Response["TokenValue"]
+            if (self.sslCer):
+                json_Response = requests.post(token_url, json=json_tokenReq, 
+                                              proxies={"http":self.proxy}, verify=self.sslCer).json()
+            else:
+                json_Response = requests.post(token_url, json=json_tokenReq, 
+                                              proxies={"http":self.proxy}, verify=certifi.where()).json()
+            if 'TokenValue' in json_Response.keys():
+                return json_Response["TokenValue"]
+            else:
+                if 'Message' in json_Response.keys():
+                    print(json_Response["Message"])
+                return None
         except json.JSONDecodeError:
-            print("JSON decoder error while posting Token request")
+            print("_get_token : JSON decoder Exception Occured")
+            print(traceback.sys.exc_info())
+            print(traceback.print_exc(limit=2))
             return None
-        except:
-            print("Token Request : Unexpected error")
+        except Exception:
+            print("_get_token : Exception Occured")
+            print(traceback.sys.exc_info())
+            print(traceback.print_exc(limit=2))
             return None
     
     def _json_Request(self, raw_text):
@@ -246,10 +293,15 @@ class Datastream:
                        for i in range(rowCount - valLen):
                             values.append(None)
                   #Check if the array of Object is JSON dates and convert
-                   for x in range(0, len(values)):
+                   for x in range(0, valLen):
                        values[x] = self._get_Date(values[x]) if str(values[x]).find('/Date(') != -1 else values[x] 
-                   df[colNames] = values
-                   multiIndex = True
+                   #Check for number of values in the array. If only one value, put in valDict
+                   if len(values) > 1:
+                       multiIndex = True
+                       df[colNames] = values
+                   else:
+                       multiIndex = False
+                       valDict["Value"].append(values[0])   
                elif valType in [1, 2, 3, 5, 6]:
                    #These value types return single value
                    valDict["Value"].append(values)
@@ -262,15 +314,20 @@ class Datastream:
                        multiIndex = False
                    elif valType == 9:
                        #value type 9 return array of JSON date values, needs conversion
-                       multiIndex = True
                        date_array = []
-                       for eachVal in values:
-                           date_array.append(self._get_Date(eachVal))
-                           df[colNames] = values
+                       if len(values) > 1:
+                          multiIndex = True
+                          for eachVal in values:
+                              date_array.append(self._get_Date(eachVal))
+                              df[colNames] = values
+                       else:
+                          multiIndex = False
+                          date_array.append(self._get_Date(values))
+                          valDict["Value"].append(values[0])
                    else:
                        if valType == 0:
                            #Error Returned
-                           multiIndex = False
+                           #multiIndex = False
                            valDict["Value"].append(values)
                            
                if multiIndex:
@@ -314,5 +371,15 @@ class Datastream:
            formattedResp.append(df)      
            
        return formattedResp
-#--------------------------------------------------------------------------------------
-       
+   
+    def _getProxy(self, proxyServ, proxyUser, proxyPwd, proxyPrt=None):
+       if(proxyUser):
+           proxyUrl = "http://{0}:{1}@".format(proxyUser, proxyPwd) + proxyServ
+       else:
+           proxyUrl = "http://" + proxyServ
+       if (proxyPrt):
+           proxyUrl = proxyUrl + ":" + str(proxyPrt)
+           print(proxyUrl)
+       return proxyUrl
+#-------------------------------------------------------------------------------------
+
