@@ -10,8 +10,9 @@ import pandas as pd
 import datetime
 import pytz
 import configparser 
-import certifi
 import traceback
+import wincertstore
+import atexit
 
 
 from DS_Requests import TokenRequest, Instrument, Properties, DataRequest, DataType, Date
@@ -27,6 +28,7 @@ class Datastream:
     proxy = ""
     sslCer = ""
     appID = "PythonLib 1.0"
+    certfile = None
    
     
 #--------Constructor ---------------------------  
@@ -146,7 +148,7 @@ class Datastream:
                                                   proxies={"http":self.proxy}, verify=self.sslCer).json()
                 else:
                     json_Response = requests.post(getData_url, json=json_dataRequest,
-                                                  proxies={"http":self.proxy}, verify=certifi.where()).json()
+                                                  proxies={"http":self.proxy}, verify=self.certfile.name).json()
                 #print(json_Response)
                 #format the JSON response into readable table
                 response_dataframe = self._format_Response(json_Response['DataResponse'])
@@ -198,7 +200,7 @@ class Datastream:
                                                   proxies={"http":self.proxy}, verify=self.sslCer).json()
                 else:
                     json_Response = requests.post(getDataBundle_url, json=json_dataRequest,
-                                                  proxies={"http":self.proxy}, verify=certifi.where()).json()
+                                                  proxies={"http":self.proxy}, verify=self.certfile.name).json()
                     #print(json_Response)
                 response_dataframe = self._format_bundle_response(json_Response)
                 return response_dataframe
@@ -226,13 +228,15 @@ class Datastream:
             tokenReq = TokenRequest(self.username, self.password, propties)
             raw_tokenReq = tokenReq.get_TokenRequest()
             json_tokenReq = self._json_Request(raw_tokenReq)
+            #Load windows certificates to a local file
+            self._loadWinCerts()
             #Post the token request to get response in json format
             if (self.sslCer):
                 json_Response = requests.post(token_url, json=json_tokenReq, 
                                               proxies={"http":self.proxy}, verify=self.sslCer).json()
             else:
                 json_Response = requests.post(token_url, json=json_tokenReq, 
-                                              proxies={"http":self.proxy}, verify=certifi.where()).json()
+                                              proxies={"http":self.proxy}, verify=self.certfile.name).json()
             if 'TokenValue' in json_Response.keys():
                 return json_Response["TokenValue"]
             else:
@@ -381,5 +385,13 @@ class Datastream:
            proxyUrl = proxyUrl + ":" + str(proxyPrt)
            print(proxyUrl)
        return proxyUrl
+   
+    def _loadWinCerts(self):
+        self.certfile = wincertstore.CertFile()
+        self.certfile.addstore('CA')
+        self.certfile.addstore('ROOT')
+        self.certfile.addstore('MY')
+        atexit.register(self.certfile.close)
+        print(self.certfile.name)
 #-------------------------------------------------------------------------------------
 
