@@ -23,6 +23,40 @@ Package Installation:
 pip install DatastreamDSWS
 ----------------------------------------------------------------------------------
 
+### Configuration for Proxy and SSL Certificate setting:
+----------------------------------------------------------------------------------
+
+DatastreamDSWS package is designed to accept the proxy details in a configuration file.
+Please refer the configuration file provided in the GitHub.
+
+Usage of Configuration
+----------------------------------------------------------------------------------
+The Proxy details (if any) can be provided under the section [proxy_details].
+[ssl_verify] section is used for providing the path of the SSL certificate bundle file.
+An example of the configuration file entry is shown below:
+(DNS or the IP address should be provided for 'server')
+
+[proxy_details]
+server=tpd-b.ten.thomsonreuters.com
+username=basic
+password=basic123
+port=4008
+[ssl_verify]
+certificate=
+
+The parameters should be left empty in case there is no data, as shown above for 'certificate'.
+
+Providing the Configuration file in the package:
+----------------------------------------------------------------------------------
+The path of the configuration file needs to be provided in the code for 'config' parameter
+
+Example:
+import DatastreamDSWS as dsws
+ds = dsws.Datastream(username='XXXXXXX', password='XXXXXXX', config=C:\\Test\Config.ini)
+
+If there are no Proxy details or SSL certificate file to be provided, the package can be used
+as shown below.
+
 ### Usage
 ----------------------------------------------------------------------------------
 1) import the 'DatastreamDSWS' package
@@ -32,7 +66,7 @@ pip install DatastreamDSWS
 ----------------------------------------------------------------------------------
 import DatastreamDSWS as dsws
 
-ds = dsws.DataStream(username='XXXXXXX', password='XXXXXXX')
+ds = dsws.Datastream(username='XXXXXXX', password='XXXXXXX')
 df = ds.get_data(tickers='VOD', fields=['P'], start ='2017-01-01', end = '-5D')
 print(df)
 
@@ -66,7 +100,7 @@ Date
 ----------------------------------------------------------------------------------
 4) Using get_bundle_data
 ----------------------------------------------------------------------------------
-ds = dsws.DataStream("xxxxxxx", "xxxxxxxxx")
+ds = dsws.Datastream("xxxxxxx", "xxxxxxxxx")
 reqs =[]
 reqs.append(ds.post_user_request(tickers='VOD',fields=['VO','P'],start='2017-01-01', kind = 0))#ststic data
 reqs.append(ds.post_user_request(tickers='U:BAC', fields=['P'], start='1975-01-01', end='0D', freq = "Y"))#Timeseries data
@@ -88,7 +122,7 @@ Field                         P
 5) Retrieving data for a List
 ----------------------------------------------------------------------------------
 import DatastreamDSWS as dsws
-dst = dsws.DataStream(username="xxxxx", password="xxxxx")
+dst = dsws.Datastream(username="xxxxx", password="xxxxx")
 
 df = ds.get_data(tickers="LS&PCOMP|L",fields =["NAME"], kind=0)
 print(df)
@@ -107,7 +141,7 @@ Output:
 6) Retrieving data for Expressions
 ----------------------------------------------------------------------------------
 import DatastreamDSWS as dsws
-ds = dsws.DataStream(username="xxxxx", password="xxxxx")
+ds = dsws.Datastream(username="xxxxx", password="xxxxx")
 
 df = ds.get_data(tickers='PCH#(VOD(P),3M)|E', start="20181101",end="-1M", freq="M")
 print(df)

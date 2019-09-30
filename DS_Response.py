@@ -13,6 +13,7 @@ import configparser
 import traceback
 import wincertstore
 import atexit
+import logging
 
 
 from DS_Requests import TokenRequest, Instrument, Properties, DataRequest, DataType, Date
@@ -25,7 +26,7 @@ class Datastream:
     password = ""
     token = None
     dataSource = None
-    proxy = ""
+    proxy = None
     sslCer = ""
     appID = "PythonLib 1.0"
     certfile = None
@@ -33,15 +34,18 @@ class Datastream:
     
 #--------Constructor ---------------------------  
     def __init__(self, username, password, dataSource=None, config=None):
+        #Get Proxy details
         if (config):
             parser = configparser.ConfigParser()
             parser.read(config)
-            server = parser.get('proxy_details', 'server')
-            user = None if parser.get('proxy_details', 'username') == '' else parser.get('proxy_details', 'username')
-            pswd = None if parser.get('proxy_details', 'password') == '' else parser.get('proxy_details', 'password')
-            port = 80 if parser.get('proxy_details', 'port') == '' else int(parser.get('proxy_details', 'port'))
-            self.sslCer = None if parser.get('ssl_verify', 'certificate') == '' else parser.get('ssl_verify', 'certificate')
-            self.proxy = self._getProxy(server, user, pswd, port)
+            server = None if parser.get('proxy_details', 'server').strip() == '' else parser.get('proxy_details', 'server').strip()
+            user = None if parser.get('proxy_details', 'username').strip() == '' else parser.get('proxy_details', 'username').strip()
+            pswd = None if parser.get('proxy_details', 'password').strip() == '' else parser.get('proxy_details', 'password').strip()
+            port = 80 if parser.get('proxy_details', 'port').strip() == '' else int(parser.get('proxy_details', 'port').strip())
+            self.sslCer = None if parser.get('ssl_verify', 'certificate') == '' else parser.get('ssl_verify', 'certificate').strip()
+            if server:
+                self.proxy = self._getProxy(server, user, pswd, port)
+        #Get DSWS username and Password    
         self.username = username
         self.password = password
         self.dataSource = dataSource
@@ -143,16 +147,27 @@ class Datastream:
             if (raw_dataRequest != ""):
                 json_dataRequest = self._json_Request(raw_dataRequest)
                 #Post the requests to get response in json format
-                if (self.sslCer):
+                if self.proxy and self.sslCer:
                     json_Response = requests.post(getData_url, json=json_dataRequest,
                                                   proxies={"http":self.proxy}, verify=self.sslCer).json()
-                else:
+                elif self.proxy:
                     json_Response = requests.post(getData_url, json=json_dataRequest,
-                                                  proxies={"http":self.proxy}, verify=self.certfile.name).json()
+                                                  proxies={"http":self.proxy}).json()
+                elif self.sslCer:
+                    json_Response = requests.post(getData_url, json=json_dataRequest,
+                                                  verify=self.sslCer).json()
+                elif self.certfile:
+                    json_Response = requests.post(getData_url, json=json_dataRequest,
+                                                  verify=self.certfile.name).json()
+                else:
+                    print('Please enter valid proxy details')
+            
                 #print(json_Response)
                 #format the JSON response into readable table
                 response_dataframe = self._format_Response(json_Response['DataResponse'])
                 return response_dataframe
+            else:
+                return None
         except json.JSONDecodeError:
             print("get_data : JSON decoder Exception Occured")
             print(traceback.sys.exc_info())
@@ -193,17 +208,28 @@ class Datastream:
                                                              self.token)
             #print(raw_dataRequest)
             if (raw_dataRequest != ""):
-                json_dataRequest = self._json_Request(raw_dataRequest)
-                #Post the requests to get response in json format
-                if (self.sslCer):
-                    json_Response = requests.post(getDataBundle_url, json=json_dataRequest,
+                 json_dataRequest = self._json_Request(raw_dataRequest)
+                 #Post the requests to get response in json format
+                 if self.proxy and self.sslCer:
+                     json_Response = requests.post(getDataBundle_url, json=json_dataRequest,
                                                   proxies={"http":self.proxy}, verify=self.sslCer).json()
-                else:
-                    json_Response = requests.post(getDataBundle_url, json=json_dataRequest,
-                                                  proxies={"http":self.proxy}, verify=self.certfile.name).json()
-                    #print(json_Response)
-                response_dataframe = self._format_bundle_response(json_Response)
-                return response_dataframe
+                 elif self.proxy:
+                     json_Response = requests.post(getDataBundle_url, json=json_dataRequest,
+                                                  proxies={"http":self.proxy}).json()
+                 elif self.sslCer:
+                     json_Response = requests.post(getDataBundle_url, json=json_dataRequest,
+                                                  verify=self.sslCer).json()
+                 elif self.certfile:
+                     json_Response = requests.post(getDataBundle_url, json=json_dataRequest,
+                                                  verify=self.certfile.name).json()
+                 else:
+                    print('Please enter valid proxy details')
+            
+                #print(json_Response)
+                 response_dataframe = self._format_bundle_response(json_Response)
+                 return response_dataframe
+            else:
+                return None
         except json.JSONDecodeError:
             print("get_bundle_data : JSON decoder Exception Occured")
             print(traceback.sys.exc_info())
@@ -229,14 +255,27 @@ class Datastream:
             raw_tokenReq = tokenReq.get_TokenRequest()
             json_tokenReq = self._json_Request(raw_tokenReq)
             #Load windows certificates to a local file
-            self._loadWinCerts()
+            logging.basicConfig(level=logging.DEBUG)
+            s = requests.Session()
+            s.mount('https://', requests.adapters.HTTPAdapter(max_retries=10))
+            if self.proxy == None:
+                self._loadWinCerts()
             #Post the token request to get response in json format
-            if (self.sslCer):
-                json_Response = requests.post(token_url, json=json_tokenReq, 
-                                              proxies={"http":self.proxy}, verify=self.sslCer).json()
+            if self.proxy and self.sslCer:
+                json_Response = s.post(token_url, json=json_tokenReq,
+                                                  proxies={"http":self.proxy}, verify=self.sslCer).json()
+            elif self.proxy:
+                json_Response = s.post(token_url, json=json_tokenReq,
+                                                  proxies={"http":self.proxy}, timeout=10).json()
+            elif self.sslCer:
+                json_Response = s.post(token_url, json=json_tokenReq,
+                                                  verify=self.sslCer).json()
+            elif self.certfile:
+                json_Response = s.post(token_url, json=json_tokenReq,
+                                                  verify=self.certfile.name).json()
             else:
-                json_Response = requests.post(token_url, json=json_tokenReq, 
-                                              proxies={"http":self.proxy}, verify=self.certfile.name).json()
+                print('Please enter valid proxy details')
+            logging.basicConfig(level=logging.DEBUG)
             if 'TokenValue' in json_Response.keys():
                 return json_Response["TokenValue"]
             else:
@@ -383,7 +422,7 @@ class Datastream:
            proxyUrl = "http://" + proxyServ
        if (proxyPrt):
            proxyUrl = proxyUrl + ":" + str(proxyPrt)
-           print(proxyUrl)
+           print('Using proxy connection : ' + proxyUrl)
        return proxyUrl
    
     def _loadWinCerts(self):
