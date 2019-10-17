@@ -149,10 +149,10 @@ class Datastream:
                 #Post the requests to get response in json format
                 if self.proxy and self.sslCer:
                     json_Response = requests.post(getData_url, json=json_dataRequest,
-                                                  proxies={"http":self.proxy}, verify=self.sslCer).json()
+                                                  proxies={"http":self.proxy, 'https':proxy}, verify=self.sslCer).json()
                 elif self.proxy:
                     json_Response = requests.post(getData_url, json=json_dataRequest,
-                                                  proxies={"http":self.proxy}).json()
+                                                  proxies={"http":self.proxy,'https':proxy}).json()
                 elif self.sslCer:
                     json_Response = requests.post(getData_url, json=json_dataRequest,
                                                   verify=self.sslCer).json()
@@ -212,10 +212,10 @@ class Datastream:
                  #Post the requests to get response in json format
                  if self.proxy and self.sslCer:
                      json_Response = requests.post(getDataBundle_url, json=json_dataRequest,
-                                                  proxies={"http":self.proxy}, verify=self.sslCer).json()
+                                                  proxies={"http":self.proxy, 'https':self.proxy}, verify=self.sslCer).json()
                  elif self.proxy:
                      json_Response = requests.post(getDataBundle_url, json=json_dataRequest,
-                                                  proxies={"http":self.proxy}).json()
+                                                  proxies={"http":self.proxy, 'https':self.proxy}).json()
                  elif self.sslCer:
                      json_Response = requests.post(getDataBundle_url, json=json_dataRequest,
                                                   verify=self.sslCer).json()
@@ -256,22 +256,20 @@ class Datastream:
             json_tokenReq = self._json_Request(raw_tokenReq)
             #Load windows certificates to a local file
             logging.basicConfig(level=logging.DEBUG)
-            s = requests.Session()
-            s.mount('https://', requests.adapters.HTTPAdapter(max_retries=10))
             if self.proxy == None:
                 self._loadWinCerts()
             #Post the token request to get response in json format
             if self.proxy and self.sslCer:
-                json_Response = s.post(token_url, json=json_tokenReq,
-                                                  proxies={"http":self.proxy}, verify=self.sslCer).json()
+                json_Response = requests.post(token_url, json=json_tokenReq,
+                                                  proxies={"http":self.proxy, 'https':self.proxy}, verify=self.sslCer).json()
             elif self.proxy:
-                json_Response = s.post(token_url, json=json_tokenReq,
-                                                  proxies={"http":self.proxy}, timeout=10).json()
+                json_Response = requests.post(token_url, json=json_tokenReq,
+                                                  proxies={"http":self.proxy, 'https':self.proxy}, timeout=10).json()
             elif self.sslCer:
-                json_Response = s.post(token_url, json=json_tokenReq,
+                json_Response = requests.post(token_url, json=json_tokenReq,
                                                   verify=self.sslCer).json()
             elif self.certfile:
-                json_Response = s.post(token_url, json=json_tokenReq,
+                json_Response = requests.post(token_url, json=json_tokenReq,
                                                   verify=self.certfile.name).json()
             else:
                 print('Please enter valid proxy details')
