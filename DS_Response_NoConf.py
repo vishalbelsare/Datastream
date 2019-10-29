@@ -15,7 +15,7 @@ import atexit
 import logging
 
 
-from DS_Requests import TokenRequest, Instrument, Properties, DataRequest, DataType, Date
+from .DS_Requests import TokenRequest, Instrument, Properties, DataRequest, DataType, Date
 
 #--------------------------------------------------------------------------------------
 class Datastream:
@@ -138,7 +138,7 @@ class Datastream:
             if (raw_dataRequest != ""):
                 json_dataRequest = self._json_Request(raw_dataRequest)
                 #Post the requests to get response in json format
-                if self.proxy:
+                if self._proxy:
                     json_Response = requests.post(getData_url, json=json_dataRequest,
                                                   proxies=self._proxy).json()
                 elif self._sslCer:
