@@ -15,7 +15,7 @@ import atexit
 import logging
 
 
-from DS_Requests import TokenRequest, Instrument, Properties, DataRequest, DataType, Date
+from .DS_Requests import TokenRequest, Instrument, Properties, DataRequest, DataType, Date
 
 #--------------------------------------------------------------------------------------
 class Datastream:
