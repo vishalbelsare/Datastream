@@ -138,7 +138,7 @@ class Datastream:
             if (raw_dataRequest != ""):
                 json_dataRequest = self._json_Request(raw_dataRequest)
                 #Post the requests to get response in json format
-                if self.proxy:
+                if self._proxy:
                     json_Response = requests.post(getData_url, json=json_dataRequest,
                                                   proxies=self._proxy).json()
                 elif self._sslCer:
@@ -392,6 +392,6 @@ class Datastream:
         self.certfile.addstore('ROOT')
         self.certfile.addstore('MY')
         atexit.register(self.certfile.close)
-        print(self.certfile.name)
+        #print(self.certfile.name)
 #-------------------------------------------------------------------------------------
 
