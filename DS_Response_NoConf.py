@@ -392,6 +392,7 @@ class Datastream:
         self.certfile.addstore('ROOT')
         self.certfile.addstore('MY')
         atexit.register(self.certfile.close)
+	#to print pem file path
         #print(self.certfile.name)
 #-------------------------------------------------------------------------------------
 
