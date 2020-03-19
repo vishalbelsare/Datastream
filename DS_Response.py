@@ -10,9 +10,9 @@ import pandas as pd
 import datetime
 import pytz
 import traceback
-import wincertstore
+import platform
+import configparser
 import atexit
-import logging
 
 
 from .DS_Requests import TokenRequest, Instrument, Properties, DataRequest, DataType, Date
@@ -23,16 +23,21 @@ class Datastream:
     url = "https://product.datastream.com/DSWSClient/V1/DSService.svc/rest/"
     username = ""
     password = ""
-    token = None
+    tokenResp = None
     dataSource = None
     _proxy = None
     _sslCer = None
-    appID = "PythonLib 1.0"
+    appID = "PythonLib 1.0.2"
     certfile = None
    
     
 #--------Constructor ---------------------------  
-    def __init__(self, username, password, dataSource=None, proxy=None, sslCer= None):
+    def __init__(self, username, password, config=None, dataSource=None, proxy=None, sslCer= None):
+        if (config):
+            parser = configparser.ConfigParser()
+            parser.read(config)
+            url = None if parser.get('url','path').strip() == '' else parser.get('url', 'path').strip()
+            url = url +'/DSWSClient/V1/DSService.svc/rest/'
         if proxy:
             self._proxy = {'http':proxy, 'https':proxy}
         if sslCer:
@@ -40,7 +45,7 @@ class Datastream:
         self.username = username
         self.password = password
         self.dataSource = dataSource
-        self.token = self._get_token()
+        self.tokenResp = self._get_token()
         
 #-------------------------------------------------------  
 #------------------------------------------------------- 
@@ -129,11 +134,13 @@ class Datastream:
         try:
             req = self.post_user_request(tickers, fields, start, end, freq, kind)
             datarequest = DataRequest()
-            if (self.token == None):
+            if (self.tokenResp == None):
                 raise Exception("Invalid Token Value")
-            else:
-                raw_dataRequest = datarequest.get_Request(req, self.dataSource, 
-                                                      self.token)
+            elif 'Message' in self.tokenResp.keys():
+                raise Exception(self.tokenResp['Message'])
+            elif 'TokenValue' in self.tokenResp.keys():
+               raw_dataRequest = datarequest.get_Request(req, self.dataSource, 
+                                                      self.tokenResp['TokenValue'])
                 #print(raw_dataRequest)
             if (raw_dataRequest != ""):
                 json_dataRequest = self._json_Request(raw_dataRequest)
@@ -179,18 +186,19 @@ class Datastream:
         raw_dataRequest = ""
         json_dataRequest = ""
         json_Response = ""
-        
+       
         if bundleRequest == None:
             bundleRequest = []
         
         try:
             datarequest = DataRequest()
-            if (self.token == None):
+            if (self.tokenResp == None):
                 raise Exception("Invalid Token Value")
-            else:
-                raw_dataRequest = datarequest.get_bundle_Request(bundleRequest, 
-                                                             self.dataSource, 
-                                                             self.token)
+            elif 'Message' in self.tokenResp.keys():
+                raise Exception(self.tokenResp['Message'])
+            elif 'TokenValue' in self.tokenResp.keys():
+                raw_dataRequest = datarequest.get_bundle_Request(bundleRequest, self.dataSource, 
+                                                             self.tokenResp['TokenValue'])
             #print(raw_dataRequest)
             if (raw_dataRequest != ""):
                  json_dataRequest = self._json_Request(raw_dataRequest)
@@ -234,8 +242,11 @@ class Datastream:
             raw_tokenReq = tokenReq.get_TokenRequest()
             json_tokenReq = self._json_Request(raw_tokenReq)
             #Load windows certificates to a local file
-            if self._proxy == None and self._sslCer == None:
+            pf = platform.platform()
+            if pf.upper().startswith('WINDOWS'):
                 self._loadWinCerts()
+            else:
+                self.certfile = requests.certs.where()
             #Post the token request to get response in json format
             if self._proxy:
                 json_Response = requests.post(token_url, json=json_tokenReq,
@@ -247,12 +258,9 @@ class Datastream:
                 json_Response = requests.post(token_url, json=json_tokenReq,
                                                   verify=self.certfile.name).json()
                 
-            if 'TokenValue' in json_Response.keys():
-                return json_Response["TokenValue"]
-            else:
-                if 'Message' in json_Response.keys():
-                    print(json_Response["Message"])
-                return None
+            
+            return json_Response
+        
         except json.JSONDecodeError:
             print("_get_token : JSON decoder Exception Occured")
             print(traceback.sys.exc_info())
@@ -388,6 +396,7 @@ class Datastream:
        return formattedResp
    
     def _loadWinCerts(self):
+        import wincertstore
         self.certfile = wincertstore.CertFile()
         self.certfile.addstore('CA')
         self.certfile.addstore('ROOT')
