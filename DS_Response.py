@@ -36,8 +36,8 @@ class Datastream:
         if (config):
             parser = configparser.ConfigParser()
             parser.read(config)
-            url = None if parser.get('url','path').strip() == '' else parser.get('url', 'path').strip()
-            url = url +'/DSWSClient/V1/DSService.svc/rest/'
+            self.url = None if parser.get('url','path').strip() == '' else parser.get('url', 'path').strip()
+            self.url = self.url +'/DSWSClient/V1/DSService.svc/rest/'
         if proxy:
             self._proxy = {'http':proxy, 'https':proxy}
         if sslCer:
