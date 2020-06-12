@@ -13,6 +13,7 @@ import traceback
 import platform
 import configparser
 import atexit
+import re
 
 
 from .DS_Requests import TokenRequest, Instrument, Properties, DataRequest, DataType, Date
@@ -37,6 +38,10 @@ class Datastream:
             parser = configparser.ConfigParser()
             parser.read(config)
             self.url = None if parser.get('url','path').strip() == '' else parser.get('url', 'path').strip()
+            self.url = self.url.lower()
+            if self.url:
+                if re.match("^http:", self.url):
+                    self.url = self.url.replace('http:', 'https:', 1) 
             self.url = self.url +'/DSWSClient/V1/DSService.svc/rest/'
         if proxy:
             self._proxy = {'http':proxy, 'https':proxy}
@@ -282,11 +287,23 @@ class Datastream:
         return jsonRequest
 
     def _get_Date(self, jsonDate):
-        d = jsonDate[6:-7]
-        d = float(d)
-        ndate = datetime.datetime(1970,1,1) + datetime.timedelta(seconds=float(d)/1000)
-        utcdate = pytz.UTC.fromutc(ndate).strftime('%Y-%m-%d')
-        return utcdate
+        try:
+            match = re.match("^/Date[(][0-9]{13}[+][0-9]{4}[)]/", jsonDate)
+            if match:
+                d = re.search('[0-9]{13}', jsonDate)
+                d = float(format(d.group(0)))
+                ndate = datetime.datetime(1970,1,1) + datetime.timedelta(seconds=float(d)/1000)
+                utcdate = pytz.UTC.fromutc(ndate).strftime('%Y-%m-%d')
+                return utcdate
+            else:
+                raise Exception("Invalid JSON Date")
+        except Exception:
+            print("_get_token : Exception Occured")
+            print(traceback.sys.exc_info())
+            print(traceback.print_exc(limit=2))
+            return None
+            
+            
     
     def _get_DatatypeValues(self, jsonDTValues):
         df = pd.DataFrame()
