@@ -28,7 +28,7 @@ class Datastream:
     dataSource = None
     _proxy = None
     _sslCer = None
-    appID = "PythonLib 1.0.2"
+    appID = "PythonLib 1.0.5"
     certfile = None
    
     
@@ -158,7 +158,7 @@ class Datastream:
                                                   verify=self._sslCer).json()
                 else:
                     json_Response = requests.post(getData_url, json=json_dataRequest,
-                                                  verify=self.certfile.name).json()
+                                                  verify=self.certfile).json()
                 #print(json_Response)
                 #format the JSON response into readable table
                 response_dataframe = self._format_Response(json_Response['DataResponse'])
@@ -216,7 +216,7 @@ class Datastream:
                                                   verify=self.sslCer).json()
                  else:
                      json_Response = requests.post(getDataBundle_url, json=json_dataRequest,
-                                                  verify=self.certfile.name).json()
+                                                  verify=self.certfile).json()
                  #print(json_Response)
                  response_dataframe = self._format_bundle_response(json_Response)
                  return response_dataframe
@@ -261,7 +261,7 @@ class Datastream:
                                                   verify=self._sslCer).json()
             else:
                 json_Response = requests.post(token_url, json=json_tokenReq,
-                                                  verify=self.certfile.name).json()
+                                                  verify=self.certfile).json()
                 
             
             return json_Response
