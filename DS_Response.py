@@ -260,8 +260,7 @@ class Datastream:
                 json_Response = requests.post(token_url, json=json_tokenReq,
                                                   verify=self._sslCer).json()
             else:
-                json_Response = requests.post(token_url, json=json_tokenReq,
-                                                  verify=self.certfile).json()
+                json_Response = requests.post(token_url, json=json_tokenReq, verify=self.certfile).json()
                 
             
             return json_Response
@@ -414,11 +413,12 @@ class Datastream:
    
     def _loadWinCerts(self):
         import wincertstore
-        self.certfile = wincertstore.CertFile()
-        self.certfile.addstore('CA')
-        self.certfile.addstore('ROOT')
-        self.certfile.addstore('MY')
-        atexit.register(self.certfile.close)
+        cfile = wincertstore.CertFile()
+        cfile.addstore('CA')
+        cfile.addstore('ROOT')
+        cfile.addstore('MY')
+        self.certfile = cfile.name
+        atexit.register(cfile.close)
         #print(self.certfile.name)
 #-------------------------------------------------------------------------------------
 
