@@ -28,7 +28,7 @@ class Datastream:
     dataSource = None
     _proxy = None
     _sslCer = None
-    appID = "PythonLib 1.0.5"
+    appID = "PythonLib 1.0.7"
     certfile = None
    
     
@@ -54,7 +54,7 @@ class Datastream:
         
 #-------------------------------------------------------  
 #------------------------------------------------------- 
-    def post_user_request(self, tickers, fields=None, start='', end='', freq='', kind=1):
+    def post_user_request(self, tickers, fields=None, start='', end='', freq='', kind=1, retName=False):
         """ This function helps to form requests for get_bundle_data. 
             Each request is converted to JSON format.
             
@@ -72,14 +72,22 @@ class Datastream:
             
         if fields == None:
             fields=[]
-                         
+        
+        index = tickers.rfind('|')
+       
+        if (retName):
+            if index == -1:
+                tickers = tickers + '|R'
+            else:
+                tickers = tickers + ',R'
+         
         index = tickers.rfind('|')
         try:
             if index == -1:
                 instrument = Instrument(tickers, None)
             else:
                 #Get all the properties of the instrument
-                props = []
+                props = []  
                 if tickers[index+1:].rfind(',') != -1:
                     propList = tickers[index+1:].split(',')
                     for eachProp in propList:
@@ -94,14 +102,15 @@ class Datastream:
                         instrument = Instrument(tickers[0:index], props)
                         
             datypes=[]
+            prop = [{'Key':'ReturnName', 'Value':True}] if retName else None
             if len(fields) > 0:
                 if len(fields) > 20:
                     raise Exception('Too mant datatypes in single request')
                 else:
                     for eachDtype in fields:
-                        datypes.append(DataType(eachDtype))
+                        datypes.append(DataType(eachDtype, prop))
             else:
-                datypes.append(DataType(fields))
+                datypes.append(DataType(fields, prop))
                         
             date = Date(start, freq, end, kind)
             request = {"Instrument":instrument,"DataTypes":datypes,"Date":date}
@@ -112,7 +121,7 @@ class Datastream:
             print(traceback.print_exc(limit=5))
             return None
             
-    def get_data(self, tickers, fields=None, start='', end='', freq='', kind=1):
+    def get_data(self, tickers, fields=None, start='', end='', freq='', kind=1, retName=False):
         """This Function processes a single JSON format request to provide
            data response from DSWS web in the form of python Dataframe
            
@@ -123,6 +132,8 @@ class Datastream:
                end : string, default ''
                freq : string, default '', By deafult DSWS treats as Daily freq
                kind: int, default 1, indicates Timeseries as output
+               retName: bool, default False, to be set to True if the Instrument
+                           names and Datatype names are to be returned
 
           Returns:
                   DataFrame."""
@@ -137,7 +148,7 @@ class Datastream:
             fields = []
         
         try:
-            req = self.post_user_request(tickers, fields, start, end, freq, kind)
+            req = self.post_user_request(tickers, fields, start, end, freq, kind, retName)
             datarequest = DataRequest()
             if (self.tokenResp == None):
                 raise Exception("Invalid Token Value")
@@ -161,8 +172,13 @@ class Datastream:
                                                   verify=self.certfile).json()
                 #print(json_Response)
                 #format the JSON response into readable table
-                response_dataframe = self._format_Response(json_Response['DataResponse'])
-                return response_dataframe
+                if 'DataResponse' in json_Response:
+                    response_dataframe = self._format_Response(json_Response['DataResponse'])
+                    return response_dataframe
+                else:
+                    if 'Message' in json_Response:
+                        raise Exception(json_Response['Message'])
+                    return None
             else:
                 return None
         except json.JSONDecodeError:
@@ -176,7 +192,7 @@ class Datastream:
             print(traceback.print_exc(limit=5))
             return None
     
-    def get_bundle_data(self, bundleRequest=None):
+    def get_bundle_data(self, bundleRequest=None, retName=False):
         """This Function processes a multiple JSON format data requests to provide
            data response from DSWS web in the form of python Dataframe.
            Use post_user_request to form each JSON data request and append to a List
@@ -184,6 +200,9 @@ class Datastream:
            
             Args:
                bundleRequest: List, expects list of Datarequests 
+               retName: bool, default False, to be set to True if the Instrument
+                           names and Datatype names are to be returned
+
             Returns:
                   DataFrame."""
 
@@ -218,8 +237,13 @@ class Datastream:
                      json_Response = requests.post(getDataBundle_url, json=json_dataRequest,
                                                   verify=self.certfile).json()
                  #print(json_Response)
-                 response_dataframe = self._format_bundle_response(json_Response)
-                 return response_dataframe
+                 if 'DataResponses' in json_Response:
+                     response_dataframe = self._format_bundle_response(json_Response)
+                     return response_dataframe
+                 else:
+                    if 'Message' in json_Response:
+                        raise Exception(json_Response['Message'])
+                    return None
             else:
                 return None
         except json.JSONDecodeError:
@@ -287,10 +311,11 @@ class Datastream:
 
     def _get_Date(self, jsonDate):
         try:
-            match = re.match("^/Date[(][0-9]{13}[+][0-9]{4}[)]/", jsonDate)
+            #match = re.match("^/Date[(][0-9]{13}[+][0-9]{4}[)]/", jsonDate)
+            match = re.match(r"^(/Date\()(-?\d*)([+-])(..)(..)(\)/)", jsonDate)
             if match:
-                d = re.search('[0-9]{13}', jsonDate)
-                d = float(format(d.group(0)))
+                #d = re.search('[0-9]{13}', jsonDate)
+                d = float(match.group(2))
                 ndate = datetime.datetime(1970,1,1) + datetime.timedelta(seconds=float(d)/1000)
                 utcdate = pytz.UTC.fromutc(ndate).strftime('%Y-%m-%d')
                 return utcdate
@@ -304,20 +329,31 @@ class Datastream:
             
             
     
-    def _get_DatatypeValues(self, jsonDTValues):
+    def _get_DatatypeValues(self, jsonResp):
         df = pd.DataFrame()
         multiIndex = False
         valDict = {"Instrument":[],"Datatype":[],"Value":[]}
-       
-        for item in jsonDTValues: 
-           datatype = item['DataType']
-           for i in item['SymbolValues']:
+        
+        names = {}
+        if jsonResp['SymbolNames']:
+            for i in jsonResp['SymbolNames']:
+                names.update({i['Key']: i['Value']})
+                
+        if jsonResp['DataTypeNames']:
+            for i in jsonResp['DataTypeNames']:
+                names.update({i['Key']: i['Value']})
+           
+        for item in jsonResp['DataTypeValues']: 
+            datatype = item['DataType']
+            dtName = names.get(datatype) if datatype in names.keys() else None
+            for i in item['SymbolValues']:
                instrument = i['Symbol']
+               instName = names.get(instrument) if instrument in names.keys() else None
                valDict["Datatype"].append(datatype)
                valDict["Instrument"].append(instrument)
                values = i['Value']
                valType = i['Type']
-               colNames = (instrument,datatype)
+               colNames = (instrument, instName, datatype, dtName) if (instName and dtName)  else (instrument, datatype)
                df[colNames] = None
                
                #Handling all possible types of data as per DSSymbolResponseValueType
@@ -368,10 +404,9 @@ class Datastream:
                            #12/12/2019 - Error returned can be array or a single 
                            #multiIndex = False
                            valDict["Value"].append(values)
-                           
                if multiIndex:
-                   df.columns = pd.MultiIndex.from_tuples(df.columns, names=['Instrument', 'Field'])
-                       
+                   df.columns = pd.MultiIndex.from_tuples(df.columns, names=['Instrument','Name','Field','Name']) if (instName and dtName) else pd.MultiIndex.from_tuples(df.columns, names=['Instrument','Field'])
+                   
         if not multiIndex:
             indexLen = range(len(valDict['Instrument']))
             newdf = pd.DataFrame(data=valDict,columns=["Instrument", "Datatype", "Value"],
@@ -392,7 +427,7 @@ class Datastream:
             return 'Error - please check instruments and parameters (time series or static)'
         
         # Loop through the values in the response
-        dataframe = self._get_DatatypeValues(response_json['DataTypeValues'])
+        dataframe = self._get_DatatypeValues(response_json)
         if (len(dates_converted) == len(dataframe.index)):
             if (len(dates_converted) > 1):
                 #dataframe.insert(loc = 0, column = 'Dates', value = dates_converted)
@@ -400,7 +435,7 @@ class Datastream:
                 dataframe.index.name = 'Dates'
         elif (len(dates_converted) == 1):
             dataframe['Dates'] = dates_converted[0]
-            
+        
         return dataframe
 
     def _format_bundle_response(self,response_json):
