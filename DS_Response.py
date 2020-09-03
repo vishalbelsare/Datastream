@@ -28,7 +28,7 @@ class Datastream:
     dataSource = None
     _proxy = None
     _sslCer = None
-    appID = "PythonLib 1.0.7"
+    appID = "PythonLib 1.0.8"
     certfile = None
    
     
@@ -94,21 +94,24 @@ class Datastream:
                         props.append(Properties(eachProp, True))
                 else:
                     props.append(Properties(tickers[index+1:], True))
-                    #Get the no of instruments given in the request
-                    instList =  tickers[0:index].split(',')
-                    if len(instList) > 40:
-                        raise Exception('Too many instruments in single request')
-                    else:
-                        instrument = Instrument(tickers[0:index], props)
+#                    #Get the no of instruments given in the request 
+                     #Commenting as this count is not needed
+#                    instList =  tickers[0:index].split(',')
+#                    if len(instList) > 40:
+#                        raise Exception('Too many instruments in single request')
+#                    else:
+                    instrument = Instrument(tickers[0:index], props)
                         
             datypes=[]
             prop = [{'Key':'ReturnName', 'Value':True}] if retName else None
+            
             if len(fields) > 0:
-                if len(fields) > 20:
-                    raise Exception('Too mant datatypes in single request')
-                else:
-                    for eachDtype in fields:
-                        datypes.append(DataType(eachDtype, prop))
+                #Commenting as this count and validation is not needed
+#                if len(fields) > 20:
+#                    raise Exception('Too mant datatypes in single request')
+#                else:
+                for eachDtype in fields:
+                    datypes.append(DataType(eachDtype, prop))
             else:
                 datypes.append(DataType(fields, prop))
                         
@@ -174,6 +177,8 @@ class Datastream:
                 #format the JSON response into readable table
                 if 'DataResponse' in json_Response:
                     response_dataframe = self._format_Response(json_Response['DataResponse'])
+                    if retName:
+                        self._get_metadata(json_Response['DataResponse'])
                     return response_dataframe
                 else:
                     if 'Message' in json_Response:
@@ -239,6 +244,8 @@ class Datastream:
                  #print(json_Response)
                  if 'DataResponses' in json_Response:
                      response_dataframe = self._format_bundle_response(json_Response)
+                     if retName:
+                        self._get_metadata_bundle(json_Response['DataResponses'])
                      return response_dataframe
                  else:
                     if 'Message' in json_Response:
@@ -333,27 +340,18 @@ class Datastream:
         df = pd.DataFrame()
         multiIndex = False
         valDict = {"Instrument":[],"Datatype":[],"Value":[]}
-        
-        names = {}
-        if jsonResp['SymbolNames']:
-            for i in jsonResp['SymbolNames']:
-                names.update({i['Key']: i['Value']})
-                
-        if jsonResp['DataTypeNames']:
-            for i in jsonResp['DataTypeNames']:
-                names.update({i['Key']: i['Value']})
-           
+        #print (jsonResp)
         for item in jsonResp['DataTypeValues']: 
             datatype = item['DataType']
-            dtName = names.get(datatype) if datatype in names.keys() else None
+            
             for i in item['SymbolValues']:
                instrument = i['Symbol']
-               instName = names.get(instrument) if instrument in names.keys() else None
+               
                valDict["Datatype"].append(datatype)
                valDict["Instrument"].append(instrument)
                values = i['Value']
                valType = i['Type']
-               colNames = (instrument, instName, datatype, dtName) if (instName and dtName)  else (instrument, datatype)
+               colNames = (instrument, datatype)
                df[colNames] = None
                
                #Handling all possible types of data as per DSSymbolResponseValueType
@@ -383,7 +381,7 @@ class Datastream:
                else:
                    if valType == 4:
                        #value type 4 return single JSON date value, which needs conversion
-                       values = self._get_Date(values)
+                       values = self._get_Date(values) if str(values).find('/Date(') != -1 else values
                        valDict["Value"].append(values)
                        multiIndex = False
                    elif valType == 9:
@@ -392,12 +390,12 @@ class Datastream:
                        if len(values) > 1:
                           multiIndex = True
                           for eachVal in values:
-                              date_array.append(self._get_Date(eachVal))
-                              df[colNames] = values
+                              date_array.append(self._get_Date(eachVal)) if str(eachVal).find('/Date(') != -1 else eachVal 
+                          df[colNames] = date_array
                        else:
                           multiIndex = False
-                          date_array.append(self._get_Date(values))
-                          valDict["Value"].append(values[0])
+                          date_array.append(self._get_Date(values[0])) if str(values[0]).find('/Date(') != -1 else values[0]
+                          valDict["Value"].append(date_array[0])
                    else:
                        if valType == 0:
                            #Error Returned
@@ -405,7 +403,7 @@ class Datastream:
                            #multiIndex = False
                            valDict["Value"].append(values)
                if multiIndex:
-                   df.columns = pd.MultiIndex.from_tuples(df.columns, names=['Instrument','Name','Field','Name']) if (instName and dtName) else pd.MultiIndex.from_tuples(df.columns, names=['Instrument','Field'])
+                   df.columns = pd.MultiIndex.from_tuples(df.columns, names=['Instrument','Field'])
                    
         if not multiIndex:
             indexLen = range(len(valDict['Instrument']))
@@ -455,5 +453,21 @@ class Datastream:
         self.certfile = cfile.name
         atexit.register(cfile.close)
         #print(self.certfile.name)
+        
+    def _get_metadata(self, jsonResp):
+        names = {}
+        if jsonResp['SymbolNames']:
+            for i in jsonResp['SymbolNames']:
+                names.update({i['Key']: i['Value']})
+                
+        if jsonResp['DataTypeNames']:
+            for i in jsonResp['DataTypeNames']:
+                names.update({i['Key']: i['Value']})
+        
+        print(names)
+        
+    def _get_metadata_bundle(self, jsonResp):
+        for eachDataResponse in jsonResp:
+            self._get_metadata(eachDataResponse)
 #-------------------------------------------------------------------------------------
 
