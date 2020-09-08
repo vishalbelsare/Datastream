@@ -7,18 +7,21 @@ Created on Sat Dec 29 00:55:39 2018
 #--------------------------------------------------------------------------------
 class Properties(object):
     """Properties - Key Value Pair"""
+    
     def __init__(self, key, value):
         self.Key = key
         self.Value = value
         
 #--------------------------------------------------------------------------------      
 class DataType(object):
-    """Class used to store Datatype""" 
+    """Class used to store Datatype and its property""" 
     #datatype = ""
-    
-    def __init__(self, value):
+    prop = [{'Key': None, 'Value': True}]
+   
+    def __init__(self, value, prop):
        self.datatype = value
-
+       self.prop = prop
+       
 #--------------------------------------------------------------------------------      
 class Date(object):
     """Date parameters of a Data Request"""
@@ -37,7 +40,7 @@ class Date(object):
 class Instrument(Properties):
     """Instrument and its Properties"""
     #instrument = ""
-    #properties = [IProperties]
+    properties = [Properties]
     
     def __init__(self, inst, props):
         self.instrument = inst
@@ -64,7 +67,7 @@ class TokenRequest(Properties):
 #--------------------------------------------------------------------------------
 class DataRequest:
      
-    hints = {"E":"IsExpression", "L":"IsList"}
+    hints = {"E":"IsExpression", "L":"IsList", "R":"ReturnName"}
     singleReq = dict
     multipleReqs = dict
     
@@ -105,7 +108,7 @@ class DataRequest:
             if eachDtype.datatype == None:
                 continue
             else:
-                datatypes.append({"Properties":None, "Value":eachDtype.datatype})
+                datatypes.append({"Properties":eachDtype.prop, "Value":eachDtype.datatype})
         return datatypes
             
         
