@@ -1,13 +1,8 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Tue Jan  1 19:51:02 2019
 
-@author: Vidya Dinesh
-"""
 import requests
 import json
 import pandas as pd
-import datetime
+from datetime import datetime, timedelta
 import pytz
 import traceback
 import platform
@@ -28,7 +23,7 @@ class Datastream:
     dataSource = None
     _proxy = None
     _sslCer = None
-    appID = "PythonLib 1.0.8"
+    appID = "PythonLib 1.0.9"
     certfile = None
    
     
@@ -164,7 +159,10 @@ class Datastream:
             if (raw_dataRequest != ""):
                 json_dataRequest = self._json_Request(raw_dataRequest)
                 #Post the requests to get response in json format
-                if self._proxy:
+                if self._proxy and self._sslCer:
+                    json_Response = requests.post(getData_url, json=json_dataRequest,
+                                                  proxies=self._proxy, verify=self._sslCer).json()
+                elif self._proxy:
                     json_Response = requests.post(getData_url, json=json_dataRequest,
                                                   proxies=self._proxy).json()
                 elif self._sslCer:
@@ -232,7 +230,10 @@ class Datastream:
             if (raw_dataRequest != ""):
                  json_dataRequest = self._json_Request(raw_dataRequest)
                  #Post the requests to get response in json format
-                 if self._proxy:
+                 if self._proxy and self._sslCer:
+                     json_Response = requests.post(getDataBundle_url, json=json_dataRequest,
+                              proxies=self._proxy, verify=self._sslCer).json()
+                 elif self._proxy:
                      json_Response = requests.post(getDataBundle_url, json=json_dataRequest,
                                                   proxies=self._proxy).json()
                  elif self._sslCer:
@@ -284,9 +285,14 @@ class Datastream:
             else:
                 self.certfile = requests.certs.where()
             #Post the token request to get response in json format
-            if self._proxy:
+            if self._proxy and self._sslCer:
                 json_Response = requests.post(token_url, json=json_tokenReq,
-                                                  proxies=self._proxy, timeout=10).json()
+                                  proxies=self._proxy, 
+                                  verify=self._sslCer, timeout=10).json()
+            elif self._proxy:
+                json_Response = requests.post(token_url, json=json_tokenReq,
+                                                  proxies=self._proxy, 
+                                                  verify=False, timeout=10).json()
             elif self._sslCer:
                 json_Response = requests.post(token_url, json=json_tokenReq,
                                                   verify=self._sslCer).json()
@@ -323,7 +329,7 @@ class Datastream:
             if match:
                 #d = re.search('[0-9]{13}', jsonDate)
                 d = float(match.group(2))
-                ndate = datetime.datetime(1970,1,1) + datetime.timedelta(seconds=float(d)/1000)
+                ndate = datetime(1970,1,1) + timedelta(seconds=float(d)/1000)
                 utcdate = pytz.UTC.fromutc(ndate).strftime('%Y-%m-%d')
                 return utcdate
             else:
