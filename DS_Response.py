@@ -16,14 +16,15 @@ from .DS_Requests import TokenRequest, Instrument, Properties, DataRequest, Data
 #--------------------------------------------------------------------------------------
 class Datastream:
     """Datastream helps to retrieve data from DSWS web rest service"""
-    url = "https://product.datastream.com/DSWSClient/V1/DSService.svc/rest/"
+    url = "https://product.datastream.com"
     username = ""
     password = ""
     tokenResp = None
     dataSource = None
     _proxy = None
     _sslCer = None
-    appID = "PythonLib 1.0.9"
+    _timeout = 180
+    appID = "PythonLib-1.1.0"
     certfile = None
    
     
@@ -32,12 +33,14 @@ class Datastream:
         if (config):
             parser = configparser.ConfigParser()
             parser.read(config)
-            self.url = None if parser.get('url','path').strip() == '' else parser.get('url', 'path').strip()
+            self.url = self.url if parser.get('url','path').strip() == '' else parser.get('url', 'path').strip()
             self.url = self.url.lower()
             if self.url:
                 if re.match("^http:", self.url):
                     self.url = self.url.replace('http:', 'https:', 1) 
-            self.url = self.url +'/DSWSClient/V1/DSService.svc/rest/'
+            #self.url = self.url +'/DSWSClient/V1/DSService.svc/rest/'
+            self._timeout = 180 if parser.get('app', 'timeout').strip() == '' else int(parser.get('app', 'timeout').strip())
+        self.url = self.url +'/DSWSClient/V1/DSService.svc/rest/'
         if proxy:
             self._proxy = {'http':proxy, 'https':proxy}
         if sslCer:
@@ -69,42 +72,32 @@ class Datastream:
             fields=[]
         
         index = tickers.rfind('|')
-       
-        if (retName):
-            if index == -1:
-                tickers = tickers + '|R'
-            else:
-                tickers = tickers + ',R'
-         
-        index = tickers.rfind('|')
+        propList = []
         try:
             if index == -1:
                 instrument = Instrument(tickers, None)
             else:
                 #Get all the properties of the instrument
-                props = []  
+                instprops = []
                 if tickers[index+1:].rfind(',') != -1:
                     propList = tickers[index+1:].split(',')
                     for eachProp in propList:
-                        props.append(Properties(eachProp, True))
+                        instprops.append(Properties(eachProp, True))
                 else:
-                    props.append(Properties(tickers[index+1:], True))
-#                    #Get the no of instruments given in the request 
-                     #Commenting as this count is not needed
-#                    instList =  tickers[0:index].split(',')
-#                    if len(instList) > 40:
-#                        raise Exception('Too many instruments in single request')
-#                    else:
-                    instrument = Instrument(tickers[0:index], props)
+                    propList.append(tickers[index+1:])
+                    instprops.append(Properties(tickers[index+1:], True))
+
+                instrument = Instrument(tickers[0:index], instprops)
                         
             datypes=[]
-            prop = [{'Key':'ReturnName', 'Value':True}] if retName else None
+            if 'N' in propList:
+                prop = [{'Key':'ReturnName', 'Value':True}] 
+                retName = True
+            else:
+                prop = None
+
             
             if len(fields) > 0:
-                #Commenting as this count and validation is not needed
-#                if len(fields) > 20:
-#                    raise Exception('Too mant datatypes in single request')
-#                else:
                 for eachDtype in fields:
                     datypes.append(DataType(eachDtype, prop))
             else:
@@ -112,14 +105,14 @@ class Datastream:
                         
             date = Date(start, freq, end, kind)
             request = {"Instrument":instrument,"DataTypes":datypes,"Date":date}
-            return request
+            return request, retName
         except Exception:
             print("post_user_request : Exception Occured")
             print(traceback.sys.exc_info())
             print(traceback.print_exc(limit=5))
             return None
             
-    def get_data(self, tickers, fields=None, start='', end='', freq='', kind=1, retName=False):
+    def get_data(self, tickers, fields=None, start='', end='', freq='', kind=1):
         """This Function processes a single JSON format request to provide
            data response from DSWS web in the form of python Dataframe
            
@@ -146,7 +139,8 @@ class Datastream:
             fields = []
         
         try:
-            req = self.post_user_request(tickers, fields, start, end, freq, kind, retName)
+            retName = False
+            req, retName = self.post_user_request(tickers, fields, start, end, freq, kind, retName)
             datarequest = DataRequest()
             if (self.tokenResp == None):
                 raise Exception("Invalid Token Value")
@@ -157,26 +151,13 @@ class Datastream:
                                                       self.tokenResp['TokenValue'])
                 #print(raw_dataRequest)
             if (raw_dataRequest != ""):
-                json_dataRequest = self._json_Request(raw_dataRequest)
-                #Post the requests to get response in json format
-                if self._proxy and self._sslCer:
-                    json_Response = requests.post(getData_url, json=json_dataRequest,
-                                                  proxies=self._proxy, verify=self._sslCer).json()
-                elif self._proxy:
-                    json_Response = requests.post(getData_url, json=json_dataRequest,
-                                                  proxies=self._proxy).json()
-                elif self._sslCer:
-                    json_Response = requests.post(getData_url, json=json_dataRequest,
-                                                  verify=self._sslCer).json()
-                else:
-                    json_Response = requests.post(getData_url, json=json_dataRequest,
-                                                  verify=self.certfile).json()
+                json_Response = self._get_json_Response(getData_url, raw_dataRequest)
                 #print(json_Response)
                 #format the JSON response into readable table
                 if 'DataResponse' in json_Response:
-                    response_dataframe = self._format_Response(json_Response['DataResponse'])
                     if retName:
                         self._get_metadata(json_Response['DataResponse'])
+                    response_dataframe = self._format_Response(json_Response['DataResponse'])
                     return response_dataframe
                 else:
                     if 'Message' in json_Response:
@@ -184,11 +165,6 @@ class Datastream:
                     return None
             else:
                 return None
-        except json.JSONDecodeError:
-            print("get_data : JSON decoder Exception Occured")
-            print(traceback.sys.exc_info())
-            print(traceback.print_exc(limit=5))
-            return None
         except Exception:
             print("get_data : Exception Occured")
             print(traceback.sys.exc_info())
@@ -228,25 +204,12 @@ class Datastream:
                                                              self.tokenResp['TokenValue'])
             #print(raw_dataRequest)
             if (raw_dataRequest != ""):
-                 json_dataRequest = self._json_Request(raw_dataRequest)
-                 #Post the requests to get response in json format
-                 if self._proxy and self._sslCer:
-                     json_Response = requests.post(getDataBundle_url, json=json_dataRequest,
-                              proxies=self._proxy, verify=self._sslCer).json()
-                 elif self._proxy:
-                     json_Response = requests.post(getDataBundle_url, json=json_dataRequest,
-                                                  proxies=self._proxy).json()
-                 elif self._sslCer:
-                     json_Response = requests.post(getDataBundle_url, json=json_dataRequest,
-                                                  verify=self.sslCer).json()
-                 else:
-                     json_Response = requests.post(getDataBundle_url, json=json_dataRequest,
-                                                  verify=self.certfile).json()
-                 #print(json_Response)
+                 json_Response = self._get_json_Response(getDataBundle_url, raw_dataRequest)
+                     #print(json_Response)
                  if 'DataResponses' in json_Response:
-                     response_dataframe = self._format_bundle_response(json_Response)
                      if retName:
-                        self._get_metadata_bundle(json_Response['DataResponses'])
+                         self._get_metadata_bundle(json_Response['DataResponses'])
+                     response_dataframe = self._format_bundle_response(json_Response)
                      return response_dataframe
                  else:
                     if 'Message' in json_Response:
@@ -254,11 +217,6 @@ class Datastream:
                     return None
             else:
                 return None
-        except json.JSONDecodeError:
-            print("get_bundle_data : JSON decoder Exception Occured")
-            print(traceback.sys.exc_info())
-            print(traceback.print_exc(limit=5))
-            return None
         except Exception:
             print("get_bundle_data : Exception Occured")
             print(traceback.sys.exc_info())
@@ -268,6 +226,81 @@ class Datastream:
 #------------------------------------------------------- 
 #-------------------------------------------------------             
 #-------Helper Functions---------------------------------------------------
+    def _get_Response(self, reqUrl, raw_request):
+        try:
+            #convert raw request to json format before post
+            jsonRequest = self._json_Request(raw_request)
+            if self._sslCer:
+                http_Response = requests.post(reqUrl, json=jsonRequest, proxies=self._proxy, verify=self._sslCer, timeout= self._timeout)
+            else:
+                http_Response = requests.post(reqUrl, json=jsonRequest, proxies=self._proxy, verify=self.certfile, timeout= self._timeout)
+            return http_Response
+        except requests.exceptions.ConnectionError as conerr:
+            print(conerr)
+            raise
+        except requests.exceptions.ConnectTimeout as conto:
+            print(conto)
+            raise
+        except requests.exceptions.ContentDecodingError as decerr:
+            print(decerr)
+            raise
+        except requests.exceptions.HTTPError as httperr:
+            print(httperr)
+            raise
+        except requests.exceptions.ProxyError as prxyerr:
+            print(prxyerr)
+            raise
+        except requests.exceptions.RequestException as reqexp:
+            print(reqexp)
+            raise
+        except requests.exceptions.SSLError as sslerr:
+            print(sslerr)
+            raise
+        except requests.exceptions.URLRequired as urlerr:
+            print(urlerr)
+            raise
+        except requests.exceptions.RequestsDependencyWarning as reqwarn:
+            print(reqwarn)
+            raise
+        except requests.exceptions.ReadTimeout as readtout:
+            print(readtout)
+            raise
+        except requests.exceptions.InvalidHeader as inverr:
+            print(inverr)
+            raise
+        except requests.exceptions.InvalidProxyURL as invPrxy:
+            print(invPrxy)
+            raise
+        except requests.exceptions.InvalidURL as invurl:
+            print(invurl)
+            raise
+        except requests.exceptions.InvalidHeader as invhdr:
+            print(invhdr)
+            raise
+        except requests.exceptions.InvalidSchema as invschma:
+            print(inschma)
+            raise
+        except Exception as otherexp:
+            print(otherexp)
+            raise
+
+        
+    def _get_json_Response(self, reqUrl, raw_request):
+        try:
+          httpResponse = self._get_Response(reqUrl, raw_request)
+          if httpResponse:
+              json_Response=dict(httpResponse.json()) if httpResponse.status_code==200 else None
+              return json_Response
+          else:
+              return None
+        except json.JSONDecodeError as jdecodeerr:
+            print("_get_json_Response : JSON decoder Exception Occured: " + jdecodeerr)
+            return None
+        except Exception as exp:
+            print("_get_json_Response : Exception Occured: ")
+            print(exp)
+            return None
+    
     def _get_token(self, isProxy=False):
         token_url = self.url + "GetToken"
         try:
@@ -277,36 +310,17 @@ class Datastream:
                 propties.append(Properties("Source", self.dataSource))
             tokenReq = TokenRequest(self.username, self.password, propties)
             raw_tokenReq = tokenReq.get_TokenRequest()
-            json_tokenReq = self._json_Request(raw_tokenReq)
+            
             #Load windows certificates to a local file
             pf = platform.platform()
             if pf.upper().startswith('WINDOWS'):
                 self._loadWinCerts()
             else:
                 self.certfile = requests.certs.where()
+
             #Post the token request to get response in json format
-            if self._proxy and self._sslCer:
-                json_Response = requests.post(token_url, json=json_tokenReq,
-                                  proxies=self._proxy, 
-                                  verify=self._sslCer, timeout=10).json()
-            elif self._proxy:
-                json_Response = requests.post(token_url, json=json_tokenReq,
-                                                  proxies=self._proxy, 
-                                                  verify=False, timeout=10).json()
-            elif self._sslCer:
-                json_Response = requests.post(token_url, json=json_tokenReq,
-                                                  verify=self._sslCer).json()
-            else:
-                json_Response = requests.post(token_url, json=json_tokenReq, verify=self.certfile).json()
-                
-            
+            json_Response = self._get_json_Response(token_url, raw_tokenReq)
             return json_Response
-        
-        except json.JSONDecodeError:
-            print("_get_token : JSON decoder Exception Occured")
-            print(traceback.sys.exc_info())
-            print(traceback.print_exc(limit=2))
-            return None
         except Exception:
             print("_get_token : Exception Occured")
             print(traceback.sys.exc_info())
@@ -345,19 +359,26 @@ class Datastream:
     def _get_DatatypeValues(self, jsonResp):
         df = pd.DataFrame()
         multiIndex = False
-        valDict = {"Instrument":[],"Datatype":[],"Value":[]}
+        valDict = {"Instrument":[],"Datatype":[],"Value":[],"Currency":[]}
         #print (jsonResp)
         for item in jsonResp['DataTypeValues']: 
             datatype = item['DataType']
             
             for i in item['SymbolValues']:
                instrument = i['Symbol']
-               
+               currency = None
+               if 'Currency' in i:
+                   currency = i['Currency']
+
                valDict["Datatype"].append(datatype)
                valDict["Instrument"].append(instrument)
+               if currency:
+                   valDict['Currency'].append(currency)
+                   colNames = (instrument, datatype, currency)
+               else:
+                   colNames = (instrument, datatype)
                values = i['Value']
                valType = i['Type']
-               colNames = (instrument, datatype)
                df[colNames] = None
                
                #Handling all possible types of data as per DSSymbolResponseValueType
@@ -409,11 +430,18 @@ class Datastream:
                            #multiIndex = False
                            valDict["Value"].append(values)
                if multiIndex:
-                   df.columns = pd.MultiIndex.from_tuples(df.columns, names=['Instrument','Field'])
+                   if currency:
+                        df.columns = pd.MultiIndex.from_tuples(df.columns, names=['Instrument','Field','Currency'])
+                   else:
+                        df.columns = pd.MultiIndex.from_tuples(df.columns, names=['Instrument','Field'])
                    
         if not multiIndex:
             indexLen = range(len(valDict['Instrument']))
-            newdf = pd.DataFrame(data=valDict,columns=["Instrument", "Datatype", "Value"],
+            if valDict['Currency']:
+                newdf = pd.DataFrame(data=valDict,columns=["Instrument", "Datatype", "Value", "Currency"],
+                                 index=indexLen)
+            else:
+                newdf = pd.DataFrame(data=valDict,columns=["Instrument", "Datatype", "Value"],
                                  index=indexLen)
             return newdf
         return df 

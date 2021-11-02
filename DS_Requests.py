@@ -16,11 +16,15 @@ class Properties(object):
 class DataType(object):
     """Class used to store Datatype and its property""" 
     #datatype = ""
-    prop = [{'Key': None, 'Value': True}]
+    #prop = [{'Key': None, 'Value': True}]
    
-    def __init__(self, value, prop):
+    def __init__(self, value, propty=None, dummy=None):
        self.datatype = value
-       self.prop = prop
+       if propty:
+           self.prop = propty
+       else:
+           self.prop = None
+           #self.prop = [{'Key': None, 'Value': True}]
        
 #--------------------------------------------------------------------------------      
 class Date(object):
@@ -67,7 +71,9 @@ class TokenRequest(Properties):
 #--------------------------------------------------------------------------------
 class DataRequest:
      
-    hints = {"E":"IsExpression", "L":"IsList", "R":"ReturnName"}
+    hints = {'E':'IsExpression', 'L':'IsList', 
+             'N':'ReturnName', 'C':'ReturnCurrency'}
+
     singleReq = dict
     multipleReqs = dict
     
@@ -79,9 +85,9 @@ class DataRequest:
         self.multipleReqs["DataRequests"] = []
         for eachReq in reqs:
             dataReq = {"DataTypes":[],"Instrument":{}, "Date":{}, "Tag":None}
-            dataReq["DataTypes"] = self._set_Datatypes(eachReq["DataTypes"])
-            dataReq["Date"] = self._set_Date(eachReq["Date"])
-            dataReq["Instrument"] = self._set_Instrument(eachReq["Instrument"])
+            dataReq["DataTypes"] = self._set_Datatypes(eachReq[0]["DataTypes"])
+            dataReq["Date"] = self._set_Date(eachReq[0]["Date"])
+            dataReq["Instrument"] = self._set_Instrument(eachReq[0]["Instrument"])
             self.multipleReqs["DataRequests"].append(dataReq)
             
         self.multipleReqs["Properties"] = {"Key":"Source","Value":source}
