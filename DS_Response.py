@@ -357,7 +357,7 @@ class Datastream:
             
     
     def _get_DatatypeValues(self, jsonResp):
-        df = pd.DataFrame()
+	df = pd.DataFrame()
         multiIndex = False
         valDict = {"Instrument":[],"Datatype":[],"Value":[],"Currency":[]}
         #print (jsonResp)
@@ -368,7 +368,7 @@ class Datastream:
                instrument = i['Symbol']
                currency = None
                if 'Currency' in i:
-                   currency = i['Currency']
+                   currency = i['Currency'] if i['Currency'] else 'NA'
 
                valDict["Datatype"].append(datatype)
                valDict["Instrument"].append(instrument)
@@ -429,6 +429,7 @@ class Datastream:
                            #12/12/2019 - Error returned can be array or a single 
                            #multiIndex = False
                            valDict["Value"].append(values)
+                           df[colNames] = values
                if multiIndex:
                    if currency:
                         df.columns = pd.MultiIndex.from_tuples(df.columns, names=['Instrument','Field','Currency'])
