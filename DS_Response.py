@@ -21,10 +21,11 @@ class Datastream:
     password = ""
     tokenResp = None
     dataSource = None
-    _proxy = None
-    _sslCer = None
     _timeout = 180
-    appID = "PythonLib-1.1.0"
+    _proxy = None
+    _sslCert = None
+    reqSession = requests.Session()
+    appID = "PythonLib-1.0.11"
     certfile = None
    
     
@@ -44,7 +45,7 @@ class Datastream:
         if proxy:
             self._proxy = {'http':proxy, 'https':proxy}
         if sslCer:
-            self._sslCer = sslCer
+            self._sslCert = sslCer
         self.username = username
         self.password = password
         self.dataSource = dataSource
@@ -230,11 +231,12 @@ class Datastream:
         try:
             #convert raw request to json format before post
             jsonRequest = self._json_Request(raw_request)
-            if self._sslCer:
-                http_Response = requests.post(reqUrl, json=jsonRequest, proxies=self._proxy, verify=self._sslCer, timeout= self._timeout)
+            if self._sslCert:
+                http_Response = self.reqSession.post(reqUrl, json=jsonRequest, proxies=self._proxy, verify = self._sslCert, timeout= self._timeout)
             else:
-                http_Response = requests.post(reqUrl, json=jsonRequest, proxies=self._proxy, verify=self.certfile, timeout= self._timeout)
+                http_Response = self.reqSession.post(reqUrl, json=jsonRequest, proxies=self._proxy, verify = self.certfile, timeout= self._timeout)
             return http_Response
+
         except requests.exceptions.ConnectionError as conerr:
             print(conerr)
             raise
@@ -357,7 +359,7 @@ class Datastream:
             
     
     def _get_DatatypeValues(self, jsonResp):
-	df = pd.DataFrame()
+        df = pd.DataFrame()
         multiIndex = False
         valDict = {"Instrument":[],"Datatype":[],"Value":[],"Currency":[]}
         #print (jsonResp)
