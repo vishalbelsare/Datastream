@@ -26,6 +26,7 @@ class Datastream:
     _sslCert = None
     reqSession = requests.Session()
     appID = "PythonLib-1.0.11"
+    self.reqSession.headers['User-Agent'] = self.reqSession.headers['User-Agent'] + ' DatastreamPy/1.0.11'
     certfile = None
    
     
@@ -231,10 +232,11 @@ class Datastream:
         try:
             #convert raw request to json format before post
             jsonRequest = self._json_Request(raw_request)
+            
             if self._sslCert:
-                http_Response = self.reqSession.post(reqUrl, json=jsonRequest, proxies=self._proxy, verify = self._sslCert, timeout= self._timeout)
+                http_Response = self.reqSession.post(reqUrl, json=jsonRequest,  proxies=self._proxy, verify = self._sslCert, timeout= self._timeout)
             else:
-                http_Response = self.reqSession.post(reqUrl, json=jsonRequest, proxies=self._proxy, verify = self.certfile, timeout= self._timeout)
+                http_Response = self.reqSession.post(reqUrl, json=jsonRequest,  proxies=self._proxy, verify = self.certfile, timeout= self._timeout)
             return http_Response
 
         except requests.exceptions.ConnectionError as conerr:
