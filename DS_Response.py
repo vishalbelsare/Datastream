@@ -26,7 +26,7 @@ class Datastream:
     _sslCert = None
     reqSession = requests.Session()
     appID = "PythonLib-1.0.11"
-    self.reqSession.headers['User-Agent'] = self.reqSession.headers['User-Agent'] + ' DatastreamPy/1.0.11'
+    reqSession.headers['User-Agent'] = reqSession.headers['User-Agent'] + ' DatastreamPy/1.0.11'
     certfile = None
    
     
